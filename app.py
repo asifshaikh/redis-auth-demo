@@ -69,5 +69,15 @@ def login():
 
     return jsonify({"access_token": access_token, "refresh_token": refresh_token}), 200
 
+@app.get('/profile')
+@jwt_required()
+def profile():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    return jsonify({"id": user.id,"username": user.username}), 200
+
 if __name__ == '__main__':
     app.run(debug=True)
