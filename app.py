@@ -96,9 +96,25 @@ def profile():
 @app.post('/refresh')
 @jwt_required(refresh=True)
 def refresh():
-    identity = get_jwt_identity()
-    access_token = create_access_token(identity=identity)
-    return jsonify({"access_token": access_token}), 200
+    user_id = get_jwt_identity()
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "Authorization header is required"}), 401
+
+    refresh_token = auth_header.split(" ")[1]
+    stored_token = redis_client.get(f"refresh_token:{user_id}")
+
+    if refresh_token != stored_token:
+        return jsonify({"error": "Session expired or revoked"}), 401
+
+    new_access_token = create_access_token(identity=user_id)
+    new_refresh_token = create_refresh_token(identity=user_id)
+
+    redis_client.setex(f"access_token:{user_id}", 900, new_access_token)
+    redis_client.setex(f"refresh_token:{user_id}", 604800, new_refresh_token)
+
+    return jsonify({"access_token": new_access_token}), 200
 
 @app.post('/logout')
 @jwt_required()
